@@ -28,6 +28,7 @@
 #define BTN_HUM_PIN   6     // boton -> sistema de humedad      (equivale a "s1")
 #define BTN_CAPIND_PIN 7    // boton -> sistema capacitivo-ind. (equivale a "s2")
 #define BTN_CAL_PIN   5     // boton -> calibrar/zerar humedad  (equivale a "cal")
+#define BTN_VISION_PIN 4    // boton -> dispara la vision (manda "CLASIFICAR" por serial)
 
 // ----------------------- Calibracion -----------------------
 // Nivel logico en el que cada sensor se considera "activado".
@@ -55,6 +56,7 @@ DHT dhtExterno(DHT_EXT_PIN, DHTTYPE);
 int btnHumPrev    = HIGH;
 int btnCapIndPrev = HIGH;
 int btnCalPrev    = HIGH;
+int btnVisionPrev = HIGH;
 
 void setup() {
   Serial.begin(9600);
@@ -67,13 +69,14 @@ void setup() {
   pinMode(BTN_HUM_PIN,    INPUT_PULLUP);
   pinMode(BTN_CAPIND_PIN, INPUT_PULLUP);
   pinMode(BTN_CAL_PIN,    INPUT_PULLUP);
+  pinMode(BTN_VISION_PIN, INPUT_PULLUP);
 
   dhtInterno.begin();
   dhtExterno.begin();
 
   Serial.println(F("Sistema listo."));
   Serial.println(F("Comandos: 's1' = humedad , 's2' = capacitivo-inductivo , 'cal' = calibrar humedad"));
-  Serial.println(F("Tambien puede usar los botones fisicos."));
+  Serial.println(F("Tambien puede usar los botones fisicos. El boton del pin 4 dispara la vision."));
   Serial.println(F("Calibre (camara vacia) antes de medir humedad."));
 }
 
@@ -116,6 +119,16 @@ void loop() {
     delay(50);
   }
   btnCalPrev = btnCal;
+
+  // ---------- 3) Boton de vision (pin 4) ----------
+  // Al presionarlo, avisa a la PC que dispare la clasificacion por camara.
+  // La PC escucha esta linea exacta y hace lo mismo que la tecla ESPACIO.
+  int btnVision = digitalRead(BTN_VISION_PIN);
+  if (btnVisionPrev == HIGH && btnVision == LOW) {
+    Serial.println(F("CLASIFICAR"));
+    delay(50);
+  }
+  btnVisionPrev = btnVision;
 }
 
 // =====================================================
