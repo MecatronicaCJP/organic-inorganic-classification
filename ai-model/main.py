@@ -38,26 +38,46 @@ def abrir_arduino():
         return None
 
 
-def leer_trigger_boton(arduino, buffer):
+def leer_serial(arduino, buffer):
     """
-    Lee el serial sin bloquear y detecta la linea MARCADOR_CLASIFICAR.
-    Ignora cualquier otro texto (por ej. los mensajes de los sensores).
-    Devuelve (disparo, buffer_actualizado).
+    Lee el serial sin bloquear y separa dos cosas:
+      - el marcador MARCADOR_CLASIFICAR (boton del pin 4) -> dispara la camara
+      - cualquier otra linea (humedad, cap-inductivo, calibracion) -> se muestra
+        en la consola, asi no hace falta abrir el Serial Monitor.
+    Devuelve (disparo, lineas_sensores, buffer_actualizado).
     """
     if arduino is None:
-        return False, buffer
+        return False, [], buffer
     try:
         if arduino.in_waiting:
             buffer += arduino.read(arduino.in_waiting).decode("utf-8", errors="ignore")
     except Exception:
-        return False, buffer
+        return False, [], buffer
 
     disparo = False
+    lineas = []
     while "\n" in buffer:
         linea, buffer = buffer.split("\n", 1)
-        if linea.strip() == config.MARCADOR_CLASIFICAR:
+        linea = linea.strip()
+        if not linea:
+            continue
+        if linea == config.MARCADOR_CLASIFICAR:
             disparo = True
-    return disparo, buffer
+        else:
+            lineas.append(linea)
+    return disparo, lineas, buffer
+
+
+def enviar_comando(arduino, comando):
+    """Manda un comando al Arduino (s1 / s2 / cal), igual que el monitor serie."""
+    if arduino is None:
+        print(f"(sin Arduino conectado: no se puede enviar '{comando}')")
+        return
+    try:
+        arduino.write((comando + "\n").encode())
+        print(f">> comando enviado al Arduino: {comando}")
+    except Exception as e:
+        print("No se pudo enviar el comando:", e)
 
 
 def clasificar_y_formatear(frame):
@@ -109,10 +129,14 @@ def main():
     arduino = abrir_arduino()
     buffer_serial = ""
 
-    texto = "ESPACIO o boton (pin 4) = clasificar   |   Q = salir"
+    texto = "ESPACIO o boton (pin 4) = clasificar"
     color = BLANCO
+    ayuda = "ESPACIO/boton=camara | 1=hum 2=cap-ind 3=calib | Q=salir"
 
     print("Sistema iniciado. Coloca el residuo frente a la camara.")
+    print("Teclas: ESPACIO o boton pin 4 = camara | 1 = humedad | "
+          "2 = capacitivo-inductivo | 3 = calibrar | Q = salir")
+    print("Los resultados de los sensores aparecen aca como [Arduino].")
 
     while True:
         ok, frame = cam.read()
@@ -124,16 +148,29 @@ def main():
         vista = frame.copy()
         cv2.putText(vista, texto, (10, 40),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
+        cv2.putText(vista, ayuda, (10, vista.shape[0] - 15),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, BLANCO, 1)
         cv2.imshow("Clasificacion de residuos", vista)
 
         tecla = cv2.waitKey(espera) & 0xFF
 
-        # El boton del pin 4 dispara exactamente lo mismo que la barra espaciadora
-        disparo_boton, buffer_serial = leer_trigger_boton(arduino, buffer_serial)
+        # El boton del pin 4 dispara la camara; el resto de las lineas son los
+        # resultados de los otros sistemas y se imprimen aca (no hace falta el
+        # Serial Monitor, que ademas no podria abrir el puerto al mismo tiempo).
+        disparo_boton, lineas_arduino, buffer_serial = leer_serial(arduino, buffer_serial)
+        for linea in lineas_arduino:
+            print("[Arduino]", linea)
 
         if tecla == ord(' ') or disparo_boton:
             texto, color = clasificar_y_formatear(frame)
             print(texto)
+
+        elif tecla == ord('1'):
+            enviar_comando(arduino, "s1")    # sistema de humedad
+        elif tecla == ord('2'):
+            enviar_comando(arduino, "s2")    # sistema capacitivo-inductivo
+        elif tecla == ord('3'):
+            enviar_comando(arduino, "cal")   # calibrar humedad (camara vacia)
 
         elif tecla == ord('q'):
             break

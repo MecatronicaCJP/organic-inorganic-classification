@@ -15,7 +15,7 @@ NOMBRE_ENTRADA_IMAGEN = "image"   # unica entrada declarada por el workflow
 
 # --- Configuracion del sistema ---
 UMBRAL_CONFIANZA = 60   # % minimo para dar una respuesta
-CAMARA = 1              # 0 = webcam integrada, 1 = webcam externa
+CAMARA = 0              # 0 = webcam integrada, 1 = webcam externa
 
 # --- Arduino (boton fisico del pin 4 que dispara la clasificacion) ---
 # En Mac el puerto suele ser /dev/cu.usbserial-XXXX o /dev/cu.usbmodemXXXX
