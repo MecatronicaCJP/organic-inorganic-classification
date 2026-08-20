@@ -81,7 +81,8 @@ def enviar_comando(arduino, comando):
 
 
 def clasificar_y_formatear(frame):
-    """Corre la clasificacion y devuelve (texto, color) listo para mostrar."""
+    """Corre la clasificacion y devuelve (text
+    o, color) listo para mostrar."""
     try:
         clase, conf = clasificar(frame)
 
